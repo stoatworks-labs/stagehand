@@ -1,0 +1,20 @@
+name: ci
+
+# The whole suite runs against the synthetic source built from this repo, so
+# there is nothing to download and nothing to install. That is deliberate: a
+# suite that needed a real source would quietly disprove the independence this
+# library claims.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Everything
+        run: sh tools/verify.sh
