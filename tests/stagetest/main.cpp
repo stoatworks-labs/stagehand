@@ -15,6 +15,7 @@
 
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -276,23 +277,87 @@ int SelfTest( const std::string& sourcePath )
 	return g_failures == 0 ? 0 : 1;
 }
 
+/*
+	Dumps one frame as a PPM. Not part of the self-test: it is for whoever is
+	writing a source and wants to see what it is actually publishing, which is
+	the fastest way to find a flip or a channel swap in their own code.
+*/
+int DumpFrame( const std::string& sourcePath, const std::string& out, int ticks )
+{
+	Sidecar s;
+	if( !s.Open( sourcePath, {} ) )
+	{
+		std::fprintf( stderr, "stagetest: %s\n", s.Status().c_str() );
+		return 1;
+	}
+
+	std::vector< uint8_t > frame( s.Info().frameBytes );
+	if( !step( s, ticks ) )
+	{
+		std::fprintf( stderr, "stagetest: the source never parked\n" );
+		return 1;
+	}
+	if( !s.Frame( frame.data(), frame.size() ) )
+	{
+		std::fprintf( stderr, "stagetest: no frame\n" );
+		return 1;
+	}
+
+	FILE* fp = std::fopen( out.c_str(), "wb" );
+	if( !fp )
+	{
+		std::fprintf( stderr, "stagetest: cannot write %s\n", out.c_str() );
+		return 1;
+	}
+
+	const StagehandInfo& info = s.Info();
+	std::fprintf( fp, "P6\n%u %u\n255\n", info.width, info.height );
+
+	// Published frames are bottom-up BGRA, shaped for a texture upload. PPM is
+	// top-down RGB, so un-flip here and the file looks like the screen.
+	for( int y = int( info.height ) - 1; y >= 0; --y )
+		for( uint32_t x = 0; x < info.width; ++x )
+		{
+			const uint8_t* px = frame.data() + ( size_t( y ) * info.width + x ) * 4;
+			std::fputc( px[ 2 ], fp );
+			std::fputc( px[ 1 ], fp );
+			std::fputc( px[ 0 ], fp );
+		}
+	std::fclose( fp );
+
+	std::printf( "stagetest: wrote %s (%ux%u)\n", out.c_str(), info.width, info.height );
+	return 0;
+}
+
 } // namespace
 
 int main( int argc, char** argv )
 {
 	std::string source = STAGEHAND_TESTSOURCE_PATH;
+	std::string out;
+	int         ticks = 8;
 
 	for( int i = 1; i < argc; ++i )
 	{
 		if( !std::strcmp( argv[ i ], "--source" ) && i + 1 < argc )
 			source = argv[ ++i ];
+		else if( !std::strcmp( argv[ i ], "--out" ) && i + 1 < argc )
+			out = argv[ ++i ];
+		else if( !std::strcmp( argv[ i ], "--ticks" ) && i + 1 < argc )
+			ticks = std::atoi( argv[ ++i ] );
 		else
 		{
-			std::fprintf( stderr, "usage: stagetest [--source PATH]\n" );
+			std::fprintf( stderr,
+						  "usage: stagetest [--source PATH]\n"
+						  "                 [--out FILE.ppm [--ticks N]]\n" );
 			return 2;
 		}
 	}
 
 	stagehand::diag::Init( "stagetest" );
+
+	if( !out.empty() )
+		return DumpFrame( source, out, ticks );
+
 	return SelfTest( source );
 }
