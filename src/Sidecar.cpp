@@ -8,6 +8,7 @@
 
 #if defined( _WIN32 )
 	#include <windows.h>
+	#include <process.h>
 #else
 	#include <dlfcn.h>
 	#include <sys/stat.h>
@@ -98,8 +99,23 @@ bool Sidecar::Open( const std::string& libraryPath,
 	*/
 	const std::string leaf =
 		std::filesystem::path( libraryPath ).filename().string();
+
+	/*
+		The process id goes in the name so two HOSTS staging the same library
+		cannot collide; the counter covers two Sidecars inside one host.
+
+		Windows spells it `_getpid` and declares it in <process.h>. Spelling it
+		the POSIX way is the sort of thing that survives review because every
+		line around it is already inside a _WIN32 branch.
+	*/
+#if defined( _WIN32 )
+	const int pid = _getpid();
+#else
+	const int pid = static_cast< int >( ::getpid() );
+#endif
+
 	char unique[ 160 ];
-	std::snprintf( unique, sizeof( unique ), "/stagehand-%d-%u-%s", int( ::getpid() ),
+	std::snprintf( unique, sizeof( unique ), "/stagehand-%d-%u-%s", pid,
 				   gCopyCounter.fetch_add( 1 ), leaf.c_str() );
 	mCopyPath = temporaryDirectory() + unique;
 
