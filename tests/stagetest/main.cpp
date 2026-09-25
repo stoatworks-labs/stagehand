@@ -57,6 +57,25 @@ bool step( Sidecar& s, int ticks = 1 )
 {
 	s.Pump( 0.0f ); // take a fresh elapsed baseline, granting nothing
 
+	/*
+		The counter only means anything if the source is ALREADY parked when it
+		is sampled. A park that was still on its way lands after the sample and
+		reads as an answer to a grant it never saw -- and it chains: the next
+		sample is taken while that grant is still being spent, so the next
+		helper can go early too. It shows up under load as the "granted nothing"
+		check seeing a tick that was left over from this helper.
+
+		Every later park is a real one, by induction: a parked source cannot
+		count another park until it has spent a tick, and it only parks again
+		once it has spent everything, this grant included. So this is only
+		needed for the very first park after Open -- the thread may not have
+		started yet -- and there is nothing outstanding at that point to spend.
+	*/
+	for( int spin = 0; spin < 2000 && s.Parks() == 0; ++spin )
+		std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+	if( s.Parks() == 0 )
+		return false;
+
 	for( int i = 0; i < ticks; ++i )
 	{
 		/*
@@ -129,7 +148,8 @@ int SelfTest( const std::string& sourcePath )
 		frame.resize( info.frameBytes );
 
 		ok( step( s, 4 ), "granted time is spent and the source parks" );
-		ok( s.Frame( frame.data(), frame.size() ), "a frame arrives" );
+		uint32_t tick = 0;
+		ok( s.Frame( frame.data(), frame.size(), &tick ), "a frame arrives" );
 		ok( s.Running(), "the source reports RUNNING" );
 
 		/*
@@ -151,8 +171,11 @@ int SelfTest( const std::string& sourcePath )
 		ok( opaque, "every pixel is opaque" );
 
 		/* --- time really is granted, not read --------------------- */
-		uint32_t tick = 0;
-		s.Frame( frame.data(), frame.size(), &tick );
+		/*
+			The baseline is the tick of the frame just taken. Asking Frame again
+			here would have nothing new to hand back, leave `tick` untouched and
+			make the baseline 0 -- which would pass however far the source ran.
+		*/
 		const uint32_t before = tick;
 
 		std::this_thread::sleep_for( std::chrono::milliseconds( 200 ) );
