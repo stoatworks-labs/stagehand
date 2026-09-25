@@ -27,6 +27,10 @@ Written for FFGL plugins in Resolume, but it depends on **OpenGL and `libdl`
 and nothing else** — not even on FFGL. Anything that can give it a current GL
 context can use it.
 
+[![Stagehand — hosting a game engine or emulator inside a video plugin](docs/video-thumb.png)](https://www.youtube.com/watch?v=IdL2So5kHe0)
+
+*[Watch it](https://www.youtube.com/watch?v=IdL2So5kHe0) — 55 seconds: stagehand's own source, verbatim, beside what it does. Resodoom (its first user, rendered by `resogl --pipe` with Freedoom data) shows `Sidecar::Pump` through Speed and Run and `ComputeFit` through Scaling and Pixel Aspect; then a real `stagetest` run and frames of the synthetic source taken through `Sidecar` by `stagetest --out`.*
+
 ---
 
 ## The two ideas
