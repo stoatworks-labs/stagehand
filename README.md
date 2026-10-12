@@ -3,8 +3,10 @@
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
 > (Anthropic), directed and reviewed by a human author. The macOS build is
 > verified by a self-test that runs against a synthetic source built from this
-> repo: 32 checks, no external dependency. The Windows and Linux branches
-> compile in principle and **have never been built or run**.
+> repo: 32 checks, no external dependency. This repo builds and tests on macOS
+> only. resodoom builds the Windows branch into its Windows release (it didn't
+> compile before v0.1.2), and that release has passed its checks in a Windows VM
+> with software OpenGL. The Linux branch **has never been built or run**.
 
 **Host a frame-producing sidecar inside a plugin.**
 
